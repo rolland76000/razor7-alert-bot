@@ -1,17 +1,20 @@
-name: Razor7 Bot
+name: Razor7 Check
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # Toutes les 5 minutes
-  workflow_dispatch:        # Permet de lancer manuellement si tu veux
+    - cron: "*/5 * * * *"   # toutes les 5 minutes
+  workflow_dispatch:
 
+permissions:
+  contents: write    # nécessaire si on veut commit last_seen.txt (optionnel ici)
 jobs:
-  run-bot:
+  check-and-notify:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -21,8 +24,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Razor7 script
+      - name: Run check_tip
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python main.py
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          RAZOR7_URL: ${{ secrets.RAZOR7_URL }}
+        run: python check_tip.py
+
+      # Optionnel : si check_tip.py modifie last_seen.txt et qu'on veut le pousser :
+      - name: Commit last_seen if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add last_seen.txt || true
+            git commit -m "Update last_seen from action"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+        # using GITHUB_TOKEN available by default
