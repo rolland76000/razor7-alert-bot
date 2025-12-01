@@ -1,0 +1,46 @@
+name: Razor7 Monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # toutes les 5 minutes
+  workflow_dispatch:        # lancement manuel possible
+
+permissions:
+  contents: write
+
+jobs:
+  check_razor7:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tip checker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          RAZOR7_URL: ${{ secrets.RAZOR7_URL }}
+        run: python check_tip.py
+
+      - name: Commit last_seen.txt if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add last_seen.txt || true
+            git commit -m "Update last_seen from action"
+            git push
+          else:
+            echo "No changes to commit"
+          fi
